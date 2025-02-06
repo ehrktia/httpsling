@@ -25,6 +25,12 @@ impl Sling {
     fn raw_uri(&self) -> String {
         self.raw_url.clone()
     }
+    fn set_method(&mut self, method: &str) {
+        self.method = method.to_string();
+    }
+    fn method(&self) -> String {
+        self.method.clone()
+    }
 }
 
 #[cfg(test)]
@@ -49,5 +55,12 @@ mod tests {
         let mut sling = Sling::default();
         sling.set_uri(value);
         assert_eq!(sling.raw_uri(), value)
+    }
+    #[test]
+    fn set_method() {
+        let mut sling = Sling::default();
+        let value = String::from("GET");
+        sling.set_method(value.as_str());
+        assert_eq!(sling.method(), value)
     }
 }
