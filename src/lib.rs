@@ -1,13 +1,15 @@
-// TODO: create a struct with fields
-// required for managing a http client
-// including decode response and headers
+#[allow(unused_imports)]
+use http::request::{Builder, Request};
+#[allow(unused_imports)]
+use std::fmt::Error;
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct Sling {
     // http_client
     method: String,
     raw_url: String,
-    // header: map[string][]string,
+    header: Vec<String>,
+    body: Vec<u8>,
     // body_provider interface
     // // response_decoder serde json decoder
 }
@@ -17,6 +19,8 @@ impl Sling {
         Sling {
             method: String::new(),
             raw_url: String::new(),
+            header: Vec::new(),
+            body: Vec::new(),
         }
     }
     fn set_uri(&mut self, url: &str) {
@@ -31,6 +35,33 @@ impl Sling {
     fn method(&self) -> String {
         self.method.clone()
     }
+    fn set_header(&mut self, headers: &Vec<String>) {
+        if headers.len() < 1 {
+            self.header = Vec::new()
+        }
+        for v in headers {
+            self.header.push(v.to_string());
+        }
+    }
+    fn headers(&self) -> Vec<String> {
+        self.header.clone()
+    }
+    fn build_request(&self) -> Result<http::Request<Vec<u8>>, http::Error> {
+        Request::builder()
+            .method(self.method.as_str())
+            .uri(self.raw_url.as_str())
+            // TODO: find alternative to clone bytes
+            .body(self.body.clone())
+    }
+    fn build_request_with_body(
+        &self,
+        body: Vec<u8>,
+    ) -> Result<http::Request<Vec<u8>>, http::Error> {
+        Request::builder()
+            .method(self.method.as_str())
+            .uri(self.raw_url.as_str())
+            .body(body.clone())
+    }
 }
 
 #[cfg(test)]
@@ -44,6 +75,8 @@ mod tests {
             Sling {
                 method: "".to_string(),
                 raw_url: "".to_string(),
+                header: Vec::new(),
+                body: Vec::new(),
             }
         );
     }
@@ -62,5 +95,30 @@ mod tests {
         let value = String::from("GET");
         sling.set_method(value.as_str());
         assert_eq!(sling.method(), value)
+    }
+    #[test]
+    fn set_header() {
+        let mut sling = Sling::default();
+        let value = vec!["val1".to_string(), "val2".to_string()];
+        sling.set_header(&value);
+        assert_eq!(sling.headers(), value)
+    }
+    #[test]
+    fn empty_header() {
+        let mut sling = Sling::default();
+        let value: Vec<String> = Vec::new();
+        sling.set_header(&value);
+        assert_eq!(sling.headers().len(), 0)
+    }
+    #[test]
+    fn build_request() {
+        let mut sling = Sling::default();
+        let body_text = "hello";
+        let body_bytes = body_text.as_bytes();
+        let body_value: Vec<u8> = body_bytes.into();
+        sling.set_uri("http://domain.com");
+        sling.set_method("GET");
+        sling.body = body_value;
+        assert!(sling.build_request().is_ok())
     }
 }
