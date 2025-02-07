@@ -119,6 +119,8 @@ mod tests {
         sling.set_uri("http://domain.com");
         sling.set_method("GET");
         sling.body = body_value;
-        assert!(sling.build_request().is_ok())
+        let request = sling.build_request().unwrap_or_default();
+        let result_body = request.into_body();
+        assert_eq!(result_body, body_bytes)
     }
 }
