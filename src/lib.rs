@@ -1,3 +1,4 @@
+use core::str;
 #[allow(unused_imports)]
 use http::request::{Builder, Request};
 #[allow(unused_imports)]
@@ -46,6 +47,11 @@ impl Sling {
     fn headers(&self) -> Vec<String> {
         self.header.clone()
     }
+    fn set_body(&mut self, body_value: Vec<u8>) {
+        self.body = body_value
+    }
+    // TODO:automatically check for headers and if missing
+    // provide default headers
     fn build_request(&self) -> Result<http::Request<Vec<u8>>, http::Error> {
         Request::builder()
             .method(self.method.as_str())
@@ -54,13 +60,11 @@ impl Sling {
             .body(self.body.clone())
     }
     fn build_request_with_body(
-        &self,
+        &mut self,
         body: Vec<u8>,
     ) -> Result<http::Request<Vec<u8>>, http::Error> {
-        Request::builder()
-            .method(self.method.as_str())
-            .uri(self.raw_url.as_str())
-            .body(body.clone())
+        self.body = body;
+        self.build_request()
     }
 }
 
@@ -118,9 +122,20 @@ mod tests {
         let body_value: Vec<u8> = body_bytes.into();
         sling.set_uri("http://domain.com");
         sling.set_method("GET");
-        sling.body = body_value;
-        let request = sling.build_request().unwrap_or_default();
+        sling.set_body(body_value);
+        let request = sling.build_request().unwrap();
         let result_body = request.into_body();
         assert_eq!(result_body, body_bytes)
+    }
+    #[test]
+    fn request_with_body() {
+        let mut sling = Sling::default();
+        sling.set_uri("http://domain.com");
+        sling.set_method("GET");
+        let body_text = "hello".to_string();
+        let body_bytes = body_text.as_bytes();
+        let body_value: Vec<u8> = body_bytes.into();
+        let request = sling.build_request_with_body(body_value).unwrap();
+        assert_eq!(request.into_body(), body_bytes)
     }
 }
