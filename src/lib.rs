@@ -5,8 +5,11 @@ use http::{HeaderMap, HeaderName, HeaderValue};
 #[allow(unused_imports)]
 use std::fmt::Error;
 use std::str::FromStr;
+
 // TODO: import client for lint and build purposes
 pub mod client;
+
+
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct Sling {
