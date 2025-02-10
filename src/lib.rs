@@ -1,26 +1,31 @@
 use core::str;
 #[allow(unused_imports)]
 use http::request::{Builder, Request};
+use http::{HeaderMap, HeaderName, HeaderValue};
 #[allow(unused_imports)]
 use std::fmt::Error;
+use std::str::FromStr;
+
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct Sling {
     // http_client
     method: String,
     raw_url: String,
-    header: Vec<String>,
+    // header: Vec<String>,
     body: Vec<u8>,
+    header: http::HeaderMap,
     // body_provider interface
     // // response_decoder serde json decoder
 }
+
 #[allow(unused)]
 impl Sling {
     fn new() -> Self {
         Sling {
             method: String::new(),
             raw_url: String::new(),
-            header: Vec::new(),
+            header: HeaderMap::new(),
             body: Vec::new(),
         }
     }
@@ -36,29 +41,38 @@ impl Sling {
     fn method(&self) -> String {
         self.method.clone()
     }
-    fn set_header(&mut self, headers: &Vec<String>) {
-        if headers.len() < 1 {
-            self.header = Vec::new()
-        }
-        for v in headers {
-            self.header.push(v.to_string());
-        }
-    }
-    fn headers(&self) -> Vec<String> {
-        self.header.clone()
+
+    fn set_header(&mut self, header_key: &str, value: &str) -> bool {
+        let header_key_value =
+            HeaderName::from_str(header_key).expect("invalid header name provided");
+        let header_value = HeaderValue::from_str(value).expect("invalid header value provided");
+        self.header.insert(header_key_value, header_value).is_none()
     }
     fn set_body(&mut self, body_value: Vec<u8>) {
         self.body = body_value
     }
-    // TODO:automatically check for headers and if missing
-    // provide default headers
-    fn build_request(&self) -> Result<http::Request<Vec<u8>>, http::Error> {
-        Request::builder()
-            .method(self.method.as_str())
-            .uri(self.raw_url.as_str())
-            // TODO: find alternative to clone bytes
-            .body(self.body.clone())
+
+    fn build_request(&mut self) -> Result<http::Request<Vec<u8>>, http::Error> {
+        if self.header.is_empty() {
+            return Request::builder()
+                .method(self.method.as_str())
+                .uri(self.raw_url.as_str())
+                .header("Accept", "application/json")
+                .body(self.body.clone());
+        } else {
+            let mut request = Request::builder()
+                .method(self.method.as_str())
+                .uri(self.raw_url.as_str())
+                .header("Accept", "application/json")
+                .body(self.body.clone())?;
+            for (k, v) in self.header.iter() {
+                let val = v.to_str().expect("invalid header value received");
+                request.headers_mut().insert(k, v.clone()).unwrap();
+            }
+            return Ok(request);
+        }
     }
+
     fn build_request_with_body(
         &mut self,
         body: Vec<u8>,
@@ -79,7 +93,7 @@ mod tests {
             Sling {
                 method: "".to_string(),
                 raw_url: "".to_string(),
-                header: Vec::new(),
+                header: HeaderMap::with_capacity(0),
                 body: Vec::new(),
             }
         );
@@ -103,16 +117,11 @@ mod tests {
     #[test]
     fn set_header() {
         let mut sling = Sling::default();
-        let value = vec!["val1".to_string(), "val2".to_string()];
-        sling.set_header(&value);
-        assert_eq!(sling.headers(), value)
-    }
-    #[test]
-    fn empty_header() {
-        let mut sling = Sling::default();
-        let value: Vec<String> = Vec::new();
-        sling.set_header(&value);
-        assert_eq!(sling.headers().len(), 0)
+        let header_key = "accept";
+        let header_value = "application/json";
+        let result = sling.set_header(&header_key, &header_value);
+        assert_eq!(sling.header.len(), 1);
+        assert_eq!(result, true)
     }
     #[test]
     fn build_request() {
