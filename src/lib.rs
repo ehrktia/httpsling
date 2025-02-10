@@ -12,7 +12,6 @@ pub struct Sling {
     // http_client
     method: String,
     raw_url: String,
-    // header: Vec<String>,
     body: Vec<u8>,
     header: http::HeaderMap,
     // body_provider interface
