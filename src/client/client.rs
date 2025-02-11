@@ -1,6 +1,6 @@
 use std::net::TcpStream;
 
-#[derive(Default, Debug, PartialEq, Clone)]
+#[derive(Default, Debug, PartialEq, Clone, Eq)]
 pub struct Client<'a> {
     addr: &'a str,
 }
