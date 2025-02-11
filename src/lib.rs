@@ -1,3 +1,4 @@
+use client::client::Client;
 use core::str;
 #[allow(unused_imports)]
 use http::request::{Builder, Request};
@@ -6,10 +7,13 @@ use http::{HeaderMap, HeaderName, HeaderValue};
 use std::fmt::Error;
 use std::str::FromStr;
 
+// TODO: import client for lint and build purposes
+pub mod client;
+
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct Sling {
-    // http_client
+pub struct Sling<'a> {
+    http_client: client::client::Client<'a>,
     method: String,
     raw_url: String,
     body: Vec<u8>,
@@ -19,24 +23,29 @@ pub struct Sling {
 }
 
 #[allow(unused)]
-impl Sling {
+impl<'a> Sling<'a> {
     fn new() -> Self {
         Sling {
             method: String::new(),
             raw_url: String::new(),
             header: HeaderMap::new(),
             body: Vec::new(),
+            http_client: Client::default(),
         }
     }
+
     fn set_uri(&mut self, url: &str) {
         self.raw_url = url.to_string();
     }
+
     fn raw_uri(&self) -> String {
         self.raw_url.clone()
     }
+
     fn set_method(&mut self, method: &str) {
         self.method = method.to_string();
     }
+
     fn method(&self) -> String {
         self.method.clone()
     }
@@ -47,6 +56,7 @@ impl Sling {
         let header_value = HeaderValue::from_str(value).expect("invalid header value provided");
         self.header.insert(header_key_value, header_value).is_none()
     }
+
     fn set_body(&mut self, body_value: Vec<u8>) {
         self.body = body_value
     }
@@ -83,6 +93,8 @@ impl Sling {
 
 #[cfg(test)]
 mod tests {
+    use client::client;
+
     use super::*;
     #[test]
     fn sling_test() {
@@ -94,6 +106,7 @@ mod tests {
                 raw_url: "".to_string(),
                 header: HeaderMap::with_capacity(0),
                 body: Vec::new(),
+                http_client: Client::default(),
             }
         );
     }
@@ -145,5 +158,11 @@ mod tests {
         let body_value: Vec<u8> = body_bytes.into();
         let request = sling.build_request_with_body(body_value).unwrap();
         assert_eq!(request.into_body(), body_bytes)
+    }
+    #[test]
+    fn client() {
+        let addr = "127.0.0.1:8888";
+        let http_client = client::Client::default().address(&addr);
+        assert_eq!(http_client.get_address(), addr);
     }
 }
