@@ -7,6 +7,7 @@ use http::{HeaderMap, HeaderName, HeaderValue};
 use std::fmt::Error;
 use std::str::FromStr;
 
+
 pub mod client;
 
 #[allow(dead_code)]
@@ -92,6 +93,7 @@ impl<'a> Sling<'a> {
 
 #[cfg(test)]
 mod tests {
+
     #[allow(unused_imports)]
     use std::io::BufReader;
     // use std::io::Write;
@@ -100,6 +102,9 @@ mod tests {
         io::{BufWriter, Read, Write},
         net::Shutdown,
     };
+
+    use client::client;
+
 
     use super::*;
     #[test]
@@ -166,6 +171,7 @@ mod tests {
         assert_eq!(request.into_body(), body_bytes)
     }
     #[test]
+
     fn connect() {
         let addr = "localhost:8888";
         let mut sling = Sling::default();
@@ -186,5 +192,6 @@ mod tests {
         println!("read bytes:{:?}", read_till);
         buf.flush().unwrap();
         stream.shutdown(Shutdown::Read).unwrap();
+
     }
 }

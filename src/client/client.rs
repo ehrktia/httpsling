@@ -1,8 +1,10 @@
+
 #[allow(unused_imports)]
 use std::{
     io::{BufReader, BufWriter},
     net::TcpStream,
 };
+
 
 #[derive(Default, Debug, PartialEq, Clone, Eq)]
 pub struct Client<'a> {
@@ -20,6 +22,7 @@ impl<'a> Client<'a> {
     }
     // TODO: find a way to write test and skip in ci and local using env var
     // setup
+
     pub fn connect_stream(&self) -> TcpStream {
         TcpStream::connect(self.addr).expect("error connecting to server to write")
     }
@@ -36,7 +39,7 @@ impl<'a> Client<'a> {
         req.push_str("Accept: ");
         req.push_str("*/*\r\n\r\n");
         req
-    }
+
 }
 
 #[cfg(test)]
@@ -49,6 +52,7 @@ mod test {
         assert_eq!(client.addr, test_addr);
         assert_eq!(client.addr, client.get_address())
     }
+
     #[test]
     fn build_request() {
         let client = Client::default();
@@ -56,4 +60,5 @@ mod test {
         let want = "GET / HTTP/1.1\r\nHost: localhost:8888\r\nAccept: */*\r\n\r\n";
         assert_eq!(result, want.to_string());
     }
+
 }
