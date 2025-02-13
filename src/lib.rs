@@ -7,13 +7,12 @@ use http::{HeaderMap, HeaderName, HeaderValue};
 use std::fmt::Error;
 use std::str::FromStr;
 
-// TODO: import client for lint and build purposes
 pub mod client;
 
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct Sling<'a> {
-    http_client: client::client::Client<'a>,
+    http_client: Client<'a>,
     method: String,
     raw_url: String,
     body: Vec<u8>,
@@ -93,7 +92,14 @@ impl<'a> Sling<'a> {
 
 #[cfg(test)]
 mod tests {
-    use client::client;
+    #[allow(unused_imports)]
+    use std::io::BufReader;
+    // use std::io::Write;
+    #[allow(unused_imports)]
+    use std::{
+        io::{BufWriter, Read, Write},
+        net::Shutdown,
+    };
 
     use super::*;
     #[test]
@@ -160,9 +166,25 @@ mod tests {
         assert_eq!(request.into_body(), body_bytes)
     }
     #[test]
-    fn client() {
-        let addr = "127.0.0.1:8888";
-        let http_client = client::Client::default().address(&addr);
-        assert_eq!(http_client.get_address(), addr);
+    fn connect() {
+        let addr = "localhost:8888";
+        let mut sling = Sling::default();
+        sling.http_client = sling.http_client.address(&addr);
+        assert_eq!(sling.http_client.get_address(), addr);
+        let mut stream = sling.http_client.connect_stream();
+        // TODO: build an approach to format request
+        let mut data = "GET / HTTP/1.1\r\nHost: localhost:8888\r\nAccept: */*\r\n\r\n"
+            .as_bytes()
+            .to_vec();
+        let bytes_written = stream.write(&mut data).unwrap();
+        println!("bytes written:{:?}", bytes_written);
+        stream.flush().unwrap();
+        stream.shutdown(Shutdown::Write).unwrap();
+        // TODO: read is empty debug and fetch response status
+        let mut buf = Vec::new();
+        let read_till = stream.read(&mut buf).unwrap();
+        println!("read bytes:{:?}", read_till);
+        buf.flush().unwrap();
+        stream.shutdown(Shutdown::Read).unwrap();
     }
 }

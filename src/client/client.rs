@@ -1,4 +1,8 @@
-use std::net::TcpStream;
+#[allow(unused_imports)]
+use std::{
+    io::{BufReader, BufWriter},
+    net::TcpStream,
+};
 
 #[derive(Default, Debug, PartialEq, Clone, Eq)]
 pub struct Client<'a> {
@@ -16,8 +20,8 @@ impl<'a> Client<'a> {
     }
     // TODO: find a way to write test and skip in ci and local using env var
     // setup
-    pub fn connect_with(&self) -> Result<TcpStream, std::io::Error> {
-        TcpStream::connect(self.addr)
+    pub fn connect_stream(&self) -> TcpStream {
+        TcpStream::connect(self.addr).expect("error connecting to server to write")
     }
 }
 
