@@ -4,6 +4,8 @@ use std::{
     net::TcpStream,
 };
 
+use http::Uri;
+
 #[derive(Default, Debug, PartialEq, Clone, Eq)]
 pub struct Client<'a> {
     addr: &'a str,
@@ -23,15 +25,27 @@ impl<'a> Client<'a> {
     pub fn connect_stream(&self) -> TcpStream {
         TcpStream::connect(self.addr).expect("error connecting to server to write")
     }
-    pub fn build_request(&self, host: &str, method: &str, url: &str) -> String {
+    pub fn build_http_req(&self, method: &str, url: &str) -> String {
+        let uri: Uri = url.parse().expect("invalid url supplied");
+        let hostname = uri.host().expect("invalid host provided");
+        let port = uri
+            .port()
+            .expect("invalid port supplied")
+            .as_str()
+            .to_owned();
+        let host_name = hostname.to_string() + ":" + port.as_str();
+        let mut path = uri.path();
+        if path == "" {
+            path = "/"
+        }
         let mut req = String::new();
-        req.push_str(method);
+        req.push_str(method.to_uppercase().as_str());
         req.push_str(" ");
-        req.push_str(url);
+        req.push_str(path);
         req.push_str(" ");
         req.push_str("HTTP/1.1\r\n");
         req.push_str("Host: ");
-        req.push_str(host);
+        req.push_str(&host_name);
         req.push_str("\r\n");
         req.push_str("Accept: ");
         req.push_str("*/*\r\n\r\n");
@@ -52,7 +66,7 @@ mod test {
     #[test]
     fn build_request() {
         let client = Client::default();
-        let result = client.build_request("localhost:8888", "GET", "/");
+        let result = client.build_http_req("GET", "http://localhost:8888/");
         let want = "GET / HTTP/1.1\r\nHost: localhost:8888\r\nAccept: */*\r\n\r\n";
         assert_eq!(result, want.to_string());
     }
