@@ -17,14 +17,15 @@ impl<'a> Client<'a> {
         client.addr = add;
         client
     }
+
     pub fn get_address(&self) -> String {
         self.addr.to_string()
     }
-    // TODO: find a way to write test and skip in ci and local using env var
-    // setup
+
     pub fn connect_stream(&self) -> TcpStream {
         TcpStream::connect(self.addr).expect("error connecting to server to write")
     }
+
     pub fn build_http_req(&self, method: &str, url: &str) -> String {
         let uri: Uri = url.parse().expect("invalid url supplied");
         let hostname = uri.host().expect("invalid host provided");
@@ -63,6 +64,7 @@ mod test {
         assert_eq!(client.addr, test_addr);
         assert_eq!(client.addr, client.get_address())
     }
+
     #[test]
     fn build_request() {
         let client = Client::default();
