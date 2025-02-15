@@ -89,7 +89,7 @@ impl<'a> Sling<'a> {
         self.build_request()
     }
     fn client_with_base_url(&mut self, url: &'a str) {
-        self.http_client = Client::default().address(url);
+        self.http_client.address(url);
     }
 }
 
@@ -97,6 +97,8 @@ impl<'a> Sling<'a> {
 mod tests {
     #[allow(unused_imports)]
     use std::io::BufReader;
+    #[allow(unused_imports)]
+    use std::{io, time::Duration};
     #[allow(unused_imports)]
     use std::{
         io::{BufWriter, Read, Write},
@@ -175,25 +177,24 @@ mod tests {
         if !ci {
             let addr = "localhost:8888";
             let mut sling = Sling::default();
-            sling.http_client = sling.http_client.address(&addr);
-            assert_eq!(sling.http_client.get_address(), addr);
+            sling.http_client.address(&addr);
             let mut stream = sling.http_client.connect_stream();
-            // TODO: build an approach to format request
             let mut data = sling
                 .http_client
-                .build_http_req("GET", "localhost:8888/")
+                .build_http_req("GET", "http://localhost:8888/")
                 .as_bytes()
                 .to_vec();
             let bytes_written = stream.write(&mut data).unwrap();
             println!("bytes written:{:?}", bytes_written);
-            stream.flush().unwrap();
-            stream.shutdown(Shutdown::Write).unwrap();
-            // TODO: read is empty debug and fetch response status
-            let mut buf = Vec::new();
-            let read_till = stream.read(&mut buf).unwrap();
-            println!("read bytes:{:?}", read_till);
-            buf.flush().unwrap();
-            stream.shutdown(Shutdown::Read).unwrap();
+            let mut buf = sling.http_client.get_response_buffer();
+            // let mut buf = [0; 512];
+            stream
+                .set_read_timeout(Some(Duration::from_millis(10)))
+                .expect("error setup read timeout");
+            let read_till = stream
+                .read(&mut buf)
+                .expect("error reading data from stream ");
+            println!("no of bytes:{read_till}");
         } else {
             println!("running in ci")
         }

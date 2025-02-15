@@ -6,35 +6,26 @@ use std::{
 
 use http::Uri;
 
-#[derive(Default, Debug, PartialEq, Clone, Eq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Client<'a> {
-    addr: &'a str,
+    base_url: &'a str,
+    response_buffer: Box<[u8]>,
 }
 
 impl<'a> Client<'a> {
-    pub fn address(&mut self, add: &'a str) -> Self {
-        let mut client = self.clone();
-        client.addr = add;
-        client
-    }
-
-    pub fn get_address(&self) -> String {
-        self.addr.to_string()
+    pub fn address(&mut self, add: &'a str) {
+        self.base_url = add;
     }
 
     pub fn connect_stream(&self) -> TcpStream {
-        TcpStream::connect(self.addr).expect("error connecting to server to write")
+        TcpStream::connect(self.base_url).expect("error connecting to server to write")
     }
 
     pub fn build_http_req(&self, method: &str, url: &str) -> String {
         let uri: Uri = url.parse().expect("invalid url supplied");
         let hostname = uri.host().expect("invalid host provided");
-        let port = uri
-            .port()
-            .expect("invalid port supplied")
-            .as_str()
-            .to_owned();
-        let host_name = hostname.to_string() + ":" + port.as_str();
+        let port = uri.port().expect("invalid port supplied");
+        let host_name = [hostname, port.as_str()].join(":");
         let mut path = uri.path();
         if path == "" {
             path = "/"
@@ -52,6 +43,12 @@ impl<'a> Client<'a> {
         req.push_str("*/*\r\n\r\n");
         req
     }
+    pub fn read_buffer_with_size(&mut self, buf: Box<[u8]>) {
+        self.response_buffer = buf
+    }
+    pub fn get_response_buffer(self) -> Box<[u8]> {
+        self.response_buffer
+    }
 }
 
 #[cfg(test)]
@@ -60,9 +57,9 @@ mod test {
     #[test]
     fn address() {
         let test_addr = "127.0.0.1:8888";
-        let client = Client::default().address(&test_addr);
-        assert_eq!(client.addr, test_addr);
-        assert_eq!(client.addr, client.get_address())
+        let mut client = Client::default();
+        client.address(&test_addr);
+        assert_eq!(client.base_url, test_addr)
     }
 
     #[test]
@@ -71,5 +68,16 @@ mod test {
         let result = client.build_http_req("GET", "http://localhost:8888/");
         let want = "GET / HTTP/1.1\r\nHost: localhost:8888\r\nAccept: */*\r\n\r\n";
         assert_eq!(result, want.to_string());
+    }
+
+    #[test]
+    fn read_buffer_with_size() {
+        let test_addr = "127.0.0.1:8888";
+        let mut client = Client::default();
+        const BUF_LEN: usize = 512;
+        let b = Box::new([0; BUF_LEN]);
+        client.address(test_addr);
+        client.read_buffer_with_size(b);
+        assert_eq!(client.response_buffer.len(), BUF_LEN)
     }
 }
