@@ -95,6 +95,7 @@ impl<'a> Sling<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::io::BufRead;
     #[allow(unused_imports)]
     use std::io::BufReader;
     #[allow(unused_imports)]
@@ -186,15 +187,17 @@ mod tests {
                 .to_vec();
             let bytes_written = stream.write(&mut data).unwrap();
             println!("bytes written:{:?}", bytes_written);
-            let mut buf = sling.http_client.get_response_buffer();
-            // let mut buf = [0; 512];
             stream
                 .set_read_timeout(Some(Duration::from_millis(10)))
                 .expect("error setup read timeout");
-            let read_till = stream
-                .read(&mut buf)
-                .expect("error reading data from stream ");
-            println!("no of bytes:{read_till}");
+            let mut reader = BufReader::new(stream);
+            let received: Vec<u8> = reader
+                .fill_buf()
+                .expect("error getting data from stream")
+                .to_vec();
+            reader.consume(received.len());
+            let data = String::from_utf8(received).expect("invalid utf8 supplied");
+            println!("data received:{data}");
         } else {
             println!("running in ci")
         }

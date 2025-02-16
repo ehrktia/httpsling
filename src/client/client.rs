@@ -9,7 +9,6 @@ use http::Uri;
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Client<'a> {
     base_url: &'a str,
-    response_buffer: Box<[u8]>,
 }
 
 impl<'a> Client<'a> {
@@ -43,12 +42,6 @@ impl<'a> Client<'a> {
         req.push_str("*/*\r\n\r\n");
         req
     }
-    pub fn read_buffer_with_size(&mut self, buf: Box<[u8]>) {
-        self.response_buffer = buf
-    }
-    pub fn get_response_buffer(self) -> Box<[u8]> {
-        self.response_buffer
-    }
 }
 
 #[cfg(test)]
@@ -68,16 +61,5 @@ mod test {
         let result = client.build_http_req("GET", "http://localhost:8888/");
         let want = "GET / HTTP/1.1\r\nHost: localhost:8888\r\nAccept: */*\r\n\r\n";
         assert_eq!(result, want.to_string());
-    }
-
-    #[test]
-    fn read_buffer_with_size() {
-        let test_addr = "127.0.0.1:8888";
-        let mut client = Client::default();
-        const BUF_LEN: usize = 512;
-        let b = Box::new([0; BUF_LEN]);
-        client.address(test_addr);
-        client.read_buffer_with_size(b);
-        assert_eq!(client.response_buffer.len(), BUF_LEN)
     }
 }
