@@ -88,17 +88,25 @@ impl<'a> Sling<'a> {
         self.body = body;
         self.build_request()
     }
+    fn client_with_base_url(&mut self, url: &'a str) {
+        self.http_client.address(url);
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::io::BufRead;
     #[allow(unused_imports)]
     use std::io::BufReader;
+    #[allow(unused_imports)]
+    use std::{io, time::Duration};
     #[allow(unused_imports)]
     use std::{
         io::{BufWriter, Read, Write},
         net::Shutdown,
     };
+
+    use http::Uri;
 
     use super::*;
     #[test]
@@ -170,26 +178,38 @@ mod tests {
         if !ci {
             let addr = "localhost:8888";
             let mut sling = Sling::default();
-            sling.http_client = sling.http_client.address(&addr);
-            assert_eq!(sling.http_client.get_address(), addr);
+            sling.http_client.address(&addr);
             let mut stream = sling.http_client.connect_stream();
-            // TODO: build an approach to format request
-            let mut data = "GET / HTTP/1.1\r\nHost: localhost:8888\r\nAccept: */*\r\n\r\n"
+            let mut data = sling
+                .http_client
+                .build_http_req("GET", "http://localhost:8888/")
                 .as_bytes()
                 .to_vec();
             let bytes_written = stream.write(&mut data).unwrap();
             println!("bytes written:{:?}", bytes_written);
-            stream.flush().unwrap();
-            stream.shutdown(Shutdown::Write).unwrap();
-            // TODO: read is empty debug and fetch response status
-            let mut buf = Vec::new();
-            let read_till = stream.read(&mut buf).unwrap();
-            println!("read bytes:{:?}", read_till);
-            buf.flush().unwrap();
-            stream.shutdown(Shutdown::Read).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_millis(10)))
+                .expect("error setup read timeout");
+            let mut reader = BufReader::new(stream);
+            let received: Vec<u8> = reader
+                .fill_buf()
+                .expect("error getting data from stream")
+                .to_vec();
+            reader.consume(received.len());
+            let data = String::from_utf8(received).expect("invalid utf8 supplied");
+            println!("data received:{data}");
         } else {
             println!("running in ci")
         }
-
+    }
+    #[test]
+    fn url() {
+        let url: Uri = "localhost:8888".parse().unwrap();
+        let host = url.host().expect("invalid host provided");
+        println!("uri:{:?}", host);
+        assert_eq!(host, "localhost");
+        let port = url.port().expect("invalid port supplied");
+        println!("port:{:?}", port.as_str());
+        assert_eq!(port.as_str(), "8888");
     }
 }
