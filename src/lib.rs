@@ -11,8 +11,8 @@ pub mod client;
 
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct Sling<'a> {
-    http_client: Client<'a>,
+pub struct Sling {
+    http_client: Client,
     method: String,
     raw_url: String,
     body: Vec<u8>,
@@ -22,7 +22,7 @@ pub struct Sling<'a> {
 }
 
 #[allow(unused)]
-impl<'a> Sling<'a> {
+impl Sling {
     fn new() -> Self {
         Sling {
             method: String::new(),
@@ -88,8 +88,8 @@ impl<'a> Sling<'a> {
         self.body = body;
         self.build_request()
     }
-    fn client_with_base_url(&mut self, url: &'a str) {
-        self.http_client.address(url);
+    fn client_with_base_url(&mut self, url: String) {
+        self.http_client.address(&url);
     }
 }
 
@@ -176,10 +176,10 @@ mod tests {
     fn connect() {
         let ci = option_env!("CI").is_some();
         if !ci {
-            let addr = "localhost:8888";
+            let addr = "http://localhost:8888".to_string();
             let mut sling = Sling::default();
             sling.http_client.address(&addr);
-            let mut stream = sling.http_client.connect_stream();
+            let mut stream = sling.http_client.connect_to();
             let mut data = sling
                 .http_client
                 .build_http_req("GET", "http://localhost:8888/")

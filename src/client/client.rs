@@ -7,22 +7,35 @@ use std::{
 use http::Uri;
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct Client<'a> {
-    base_url: &'a str,
+pub struct Client {
+    base_url: String,
 }
 
-impl<'a> Client<'a> {
-    pub fn address(&mut self, add: &'a str) {
-        self.base_url = add;
+impl Client {
+    pub fn address(&mut self, add: &String) {
+        self.base_url = add.clone();
     }
 
-    pub fn connect_stream(&self) -> TcpStream {
-        TcpStream::connect(self.base_url).expect("error connecting to server to write")
+    pub fn connect_to(&self) -> TcpStream {
+        let mut url = self.base_url.clone();
+        if url.starts_with("http://") {
+            url = url.replace("http://", "");
+        }
+        TcpStream::connect(url).expect("error connecting to server to write")
+    }
+
+    fn check_default_path(&self) -> bool {
+        let base_len = self.base_url.len();
+        let (_first, last) = self.base_url.split_at(base_len - 1);
+        return last == "/";
     }
 
     pub fn http_req_from_path(&self, method: &str, path: &str) -> String {
         let mut base = self.base_url.to_string();
         if path.starts_with("/") {
+            if self.check_default_path() {
+                return self.base_url.clone();
+            }
             base.push_str(path);
             return self.build_http_req(method, &base);
         }
@@ -70,7 +83,7 @@ mod test {
     use super::*;
     #[test]
     fn address() {
-        let test_addr = "127.0.0.1:8888";
+        let test_addr = String::from("127.0.0.1:8888");
         let mut client = Client::default();
         client.address(&test_addr);
         assert_eq!(client.base_url, test_addr)
@@ -86,7 +99,7 @@ mod test {
     #[test]
     fn build_req_from_path() {
         let mut client = Client::default();
-        let addr = "http://localhost:8080";
+        let addr = String::from("http://localhost:8080");
         client.address(&addr);
         let result = client.http_req_from_path("GET", "/");
         let want = "GET / HTTP/1.1\r\nHost: localhost:8080\r\nAccept: */*\r\n\r\n";
@@ -94,7 +107,7 @@ mod test {
     }
     #[test]
     fn url_with_no_slash() {
-        let addr = "home";
+        let addr = String::from("home");
         let mut client = Client::default();
         client.address(&addr);
         let url: Uri = addr.parse().unwrap();
@@ -102,7 +115,6 @@ mod test {
             Ok(v) => v,
             Err(e) => e.to_string(),
         };
-        println!("v:{v}");
         assert_ne!(v, addr);
     }
 
@@ -110,12 +122,26 @@ mod test {
     fn connect_stream() {
         let ci = option_env!("CI").is_some();
         if !ci {
-            let addr = "http://localhost:8888";
+            let addr = String::from("http://localhost:8888");
             let mut client = Client::default();
             client.address(&addr);
-            client.connect_stream();
+            client.connect_to();
         } else {
             println!("running in ci");
         }
+    }
+    #[test]
+    fn check_default_path() {
+        let mut client = Client::default();
+        let addr = String::from("http://localhost:8888/");
+        client.address(&addr);
+        assert_eq!(client.check_default_path(), true)
+    }
+    #[test]
+    fn check_default_path_false() {
+        let mut client = Client::default();
+        let addr = String::from("http://localhost:8888");
+        client.address(&addr);
+        assert_eq!(client.check_default_path(), false);
     }
 }
