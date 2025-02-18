@@ -1,3 +1,6 @@
+//! # Client
+//! is a tcp based client used for http interaction
+//! uses the `base_url` provided and tries to communicate with server
 #[allow(unused_imports)]
 use std::{
     io::{BufReader, BufWriter},
@@ -6,16 +9,22 @@ use std::{
 
 use http::Uri;
 
+/// Client holds `base_url` which
+/// can be used to chain requests
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Client {
     base_url: String,
 }
 
 impl Client {
+    /// sets the provided server address as `base_url`
     pub fn address(&mut self, add: &String) {
         self.base_url = add.clone();
     }
 
+    /// connects with server configured via `base_url` using
+    /// `address`. **note** any protocol information present
+    /// in url will be stripped off
     pub fn connect_to(&self) -> TcpStream {
         let mut url = self.base_url.clone();
         if url.starts_with("http://") {
@@ -24,12 +33,15 @@ impl Client {
         TcpStream::connect(url).expect("error connecting to server to write")
     }
 
+    /// verifies if the `base_url` holds the `/` at the end
     fn check_default_path(&self) -> bool {
         let base_len = self.base_url.len();
         let (_first, last) = self.base_url.split_at(base_len - 1);
         return last == "/";
     }
 
+    /// used to build a request just using the path with `base_url` configured
+    /// to server root using `address`
     pub fn http_req_from_path(&self, method: &str, path: &str) -> String {
         let mut base = self.base_url.to_string();
         if path.starts_with("/") {
@@ -44,6 +56,7 @@ impl Client {
         self.build_http_req(method, &base)
     }
 
+    /// extracts the path and query parameters supplied to url
     fn get_path(&self, url: &Uri) -> Result<String, &'static str> {
         if url.path() == "" {
             let e = Err("invalid path supplied");
@@ -55,6 +68,7 @@ impl Client {
         }
     }
 
+    /// internally builds a http request using the url and method provided
     pub fn build_http_req(&self, method: &str, url: &str) -> String {
         let uri: Uri = url.parse().expect("invalid url supplied");
         let path_query = self

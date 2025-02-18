@@ -1,3 +1,19 @@
+//! # httpsling
+//!
+//! `httpsling` provides a test http client
+//!
+//! sling is an insipration from existing lib written in golang
+//! httpsling provides a simple http client for testing .
+//! It follows minimal dependency policy using only standard
+//! network libraries.
+//!
+//! **TODO**: write an example usage
+//!
+//! This is a blocking/synchronus client, plans in future to make this async.
+//! Focus of this client is to help with testing http servers and apis.
+//! The client can be used to connect with http server, fetch
+//! response code and response body.
+
 use client::client::Client;
 use core::str;
 #[allow(unused_imports)]
@@ -11,18 +27,22 @@ pub mod client;
 
 #[allow(dead_code)]
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
+/// Sling is used to interact with http server.
+/// it holds a `http_client` which is used to interact
+/// with http server.
+/// `raw_url` which can point to server which you prefer to connect
+/// with
 pub struct Sling {
     http_client: Client,
     method: String,
     raw_url: String,
     body: Vec<u8>,
     header: http::HeaderMap,
-    // body_provider interface
-    // // response_decoder serde json decoder
 }
 
 #[allow(unused)]
 impl Sling {
+    /// create a new empty sling similar to using `default`
     fn new() -> Self {
         Sling {
             method: String::new(),
@@ -33,22 +53,27 @@ impl Sling {
         }
     }
 
+    /// sets the uri
     fn set_uri(&mut self, url: &str) {
         self.raw_url = url.to_string();
     }
 
+    /// used to get url used for server
     fn raw_uri(&self) -> String {
         self.raw_url.clone()
     }
 
+    /// sets method for request
     fn set_method(&mut self, method: &str) {
         self.method = method.to_string();
     }
 
+    /// provides method used
     fn method(&self) -> String {
         self.method.clone()
     }
 
+    /// sets the header `http::Header`
     fn set_header(&mut self, header_key: &str, value: &str) -> bool {
         let header_key_value =
             HeaderName::from_str(header_key).expect("invalid header name provided");
@@ -56,10 +81,12 @@ impl Sling {
         self.header.insert(header_key_value, header_value).is_none()
     }
 
+    /// body bytes associated with request
     fn set_body(&mut self, body_value: Vec<u8>) {
         self.body = body_value
     }
 
+    /// builds a http request
     fn build_request(&mut self) -> Result<http::Request<Vec<u8>>, http::Error> {
         if self.header.is_empty() {
             return Request::builder()
@@ -80,7 +107,7 @@ impl Sling {
             return Ok(request);
         }
     }
-
+    /// builds request with a body
     fn build_request_with_body(
         &mut self,
         body: Vec<u8>,
@@ -88,6 +115,7 @@ impl Sling {
         self.body = body;
         self.build_request()
     }
+    /// build a client with `base_url` for server
     fn client_with_base_url(&mut self, url: String) {
         self.http_client.address(&url);
     }
