@@ -138,15 +138,10 @@ mod test {
 
     #[test]
     fn connect_stream() {
-        let ci = option_env!("CI").is_some();
-        if !ci {
-            let addr = String::from("http://localhost:8888");
-            let mut client = Client::default();
-            client.address(&addr);
-            client.connect_to();
-        } else {
-            println!("running in ci");
-        }
+        let addr = String::from("http://localhost:8888");
+        let mut client = Client::default();
+        client.address(&addr);
+        client.connect_to();
     }
     #[test]
     fn check_default_path() {

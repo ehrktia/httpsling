@@ -234,8 +234,6 @@ mod tests {
     }
     #[test]
     fn connect() {
-        // let ci = option_env!("CI").is_some();
-        // if !ci {
         let addr = "http://localhost:8888".to_string();
         let sling = Sling::default();
         let mut http_client = sling.http_client();
@@ -258,9 +256,6 @@ mod tests {
         reader.consume(received.len());
         let data = String::from_utf8(received).expect("invalid utf8 supplied");
         println!("data received:{data}");
-        // } else {
-        //     println!("running in ci")
-        // }
     }
     #[test]
     fn url() {
