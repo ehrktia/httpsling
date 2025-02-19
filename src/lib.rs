@@ -234,33 +234,33 @@ mod tests {
     }
     #[test]
     fn connect() {
-        let ci = option_env!("CI").is_some();
-        if !ci {
-            let addr = "http://localhost:8888".to_string();
-            let sling = Sling::default();
-            let mut http_client = sling.http_client();
-            http_client.address(&addr);
-            let mut stream = http_client.connect_to();
-            let mut data = http_client
-                .build_http_req("GET", "http://localhost:8888/")
-                .as_bytes()
-                .to_vec();
-            let bytes_written = stream.write(&mut data).unwrap();
-            println!("bytes written:{:?}", bytes_written);
-            stream
-                .set_read_timeout(Some(Duration::from_millis(10)))
-                .expect("error setup read timeout");
-            let mut reader = BufReader::new(stream);
-            let received: Vec<u8> = reader
-                .fill_buf()
-                .expect("error getting data from stream")
-                .to_vec();
-            reader.consume(received.len());
-            let data = String::from_utf8(received).expect("invalid utf8 supplied");
-            println!("data received:{data}");
-        } else {
-            println!("running in ci")
-        }
+        // let ci = option_env!("CI").is_some();
+        // if !ci {
+        let addr = "http://localhost:8888".to_string();
+        let sling = Sling::default();
+        let mut http_client = sling.http_client();
+        http_client.address(&addr);
+        let mut stream = http_client.connect_to();
+        let mut data = http_client
+            .build_http_req("GET", "http://localhost:8888/")
+            .as_bytes()
+            .to_vec();
+        let bytes_written = stream.write(&mut data).unwrap();
+        println!("bytes written:{:?}", bytes_written);
+        stream
+            .set_read_timeout(Some(Duration::from_millis(10)))
+            .expect("error setup read timeout");
+        let mut reader = BufReader::new(stream);
+        let received: Vec<u8> = reader
+            .fill_buf()
+            .expect("error getting data from stream")
+            .to_vec();
+        reader.consume(received.len());
+        let data = String::from_utf8(received).expect("invalid utf8 supplied");
+        println!("data received:{data}");
+        // } else {
+        //     println!("running in ci")
+        // }
     }
     #[test]
     fn url() {
