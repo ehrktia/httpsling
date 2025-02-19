@@ -6,8 +6,36 @@
 //! httpsling provides a simple http client for testing .
 //! It follows minimal dependency policy using only standard
 //! network libraries.
-//!
-//! **TODO**: write an example usage
+//! # Example
+//! ```
+//!use httpsling::Sling;
+//!use std::io::BufRead;
+//!use std::io::Write;
+//!use std::io::BufReader;
+//!use std::time::Duration;
+//! let addr = "http://localhost:8888".to_string();
+//! let sling = Sling::default();
+//! let mut http_client = sling.http_client();
+//! http_client.address(&addr);
+//! let mut stream = http_client.connect_to();
+//! let mut data = http_client
+//!     .build_http_req("GET", "http://localhost:8888/")
+//!     .as_bytes()
+//!     .to_vec();
+//! let bytes_written = stream.write(&mut data).unwrap();
+//! println!("bytes written:{:?}", bytes_written);
+//! stream
+//!     .set_read_timeout(Some(Duration::from_millis(10)))
+//!     .expect("error setup read timeout");
+//! let mut reader = BufReader::new(stream);
+//! let received: Vec<u8> = reader
+//!     .fill_buf()
+//!     .expect("error getting data from stream")
+//!     .to_vec();
+//! reader.consume(received.len());
+//! let data = String::from_utf8(received).expect("invalid utf8 supplied");
+//! println!("data received:{data}");
+//! ```
 //!
 //! This is a blocking/synchronus client, plans in future to make this async.
 //! Focus of this client is to help with testing http servers and apis.
@@ -25,13 +53,13 @@ use std::str::FromStr;
 
 pub mod client;
 
-#[allow(dead_code)]
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
 /// Sling is used to interact with http server.
 /// it holds a `http_client` which is used to interact
 /// with http server.
 /// `raw_url` which can point to server which you prefer to connect
 /// with
+#[allow(dead_code)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct Sling {
     http_client: Client,
     method: String,
@@ -119,6 +147,10 @@ impl Sling {
     fn client_with_base_url(&mut self, url: String) {
         self.http_client.address(&url);
     }
+    /// gets configured default http client
+    pub fn http_client(&self) -> Client {
+        self.http_client.clone()
+    }
 }
 
 #[cfg(test)]
@@ -202,33 +234,28 @@ mod tests {
     }
     #[test]
     fn connect() {
-        let ci = option_env!("CI").is_some();
-        if !ci {
-            let addr = "http://localhost:8888".to_string();
-            let mut sling = Sling::default();
-            sling.http_client.address(&addr);
-            let mut stream = sling.http_client.connect_to();
-            let mut data = sling
-                .http_client
-                .build_http_req("GET", "http://localhost:8888/")
-                .as_bytes()
-                .to_vec();
-            let bytes_written = stream.write(&mut data).unwrap();
-            println!("bytes written:{:?}", bytes_written);
-            stream
-                .set_read_timeout(Some(Duration::from_millis(10)))
-                .expect("error setup read timeout");
-            let mut reader = BufReader::new(stream);
-            let received: Vec<u8> = reader
-                .fill_buf()
-                .expect("error getting data from stream")
-                .to_vec();
-            reader.consume(received.len());
-            let data = String::from_utf8(received).expect("invalid utf8 supplied");
-            println!("data received:{data}");
-        } else {
-            println!("running in ci")
-        }
+        let addr = "http://localhost:8888".to_string();
+        let sling = Sling::default();
+        let mut http_client = sling.http_client();
+        http_client.address(&addr);
+        let mut stream = http_client.connect_to();
+        let mut data = http_client
+            .build_http_req("GET", "http://localhost:8888/")
+            .as_bytes()
+            .to_vec();
+        let bytes_written = stream.write(&mut data).unwrap();
+        println!("bytes written:{:?}", bytes_written);
+        stream
+            .set_read_timeout(Some(Duration::from_millis(10)))
+            .expect("error setup read timeout");
+        let mut reader = BufReader::new(stream);
+        let received: Vec<u8> = reader
+            .fill_buf()
+            .expect("error getting data from stream")
+            .to_vec();
+        reader.consume(received.len());
+        let data = String::from_utf8(received).expect("invalid utf8 supplied");
+        println!("data received:{data}");
     }
     #[test]
     fn url() {

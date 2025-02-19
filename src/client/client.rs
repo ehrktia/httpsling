@@ -30,6 +30,7 @@ impl Client {
         if url.starts_with("http://") {
             url = url.replace("http://", "");
         }
+        println!("connecting to:{:?}", url);
         TcpStream::connect(url).expect("error connecting to server to write")
     }
 
@@ -66,6 +67,9 @@ impl Client {
             Some(pq) => return Ok(pq.to_string()),
             _ => return Err("invalid query param supplied"),
         }
+    }
+    pub fn get_address(&self) -> String {
+        self.base_url.clone()
     }
 
     /// internally builds a http request using the url and method provided
@@ -134,15 +138,10 @@ mod test {
 
     #[test]
     fn connect_stream() {
-        let ci = option_env!("CI").is_some();
-        if !ci {
-            let addr = String::from("http://localhost:8888");
-            let mut client = Client::default();
-            client.address(&addr);
-            client.connect_to();
-        } else {
-            println!("running in ci");
-        }
+        let addr = String::from("http://localhost:8888");
+        let mut client = Client::default();
+        client.address(&addr);
+        client.connect_to();
     }
     #[test]
     fn check_default_path() {

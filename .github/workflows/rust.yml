@@ -3,6 +3,8 @@ name: Rust
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: ["*"]
 
 
 env:
@@ -10,6 +12,11 @@ env:
 
 jobs:
   build:
+    services:
+      go-server:
+        image: nginx
+        ports:
+          - 8888:80
 
     runs-on: ubuntu-latest
 
