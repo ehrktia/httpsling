@@ -7,16 +7,17 @@
 //! It follows minimal dependency policy using only standard
 //! network libraries.
 //! # Example
-//! ```
-//!use httpsling::Sling;
-//!use std::io::BufRead;
-//!use std::io::Write;
-//!use std::io::BufReader;
-//!use std::time::Duration;
+//!```
+//! use std::io::BufReader;
+//! use std::io::BufRead;
+//! use std::io::Write;
+//! use std::time::Duration;
+//! use httpsling::Sling;
 //! let addr = "http://localhost:8888".to_string();
-//! let sling = Sling::default();
-//! let mut http_client = sling.http_client();
-//! http_client.address(&addr);
+//! let sling = Sling::builder()
+//!     .set_read_timeout(Duration::from_millis(10))
+//!     .set_uri(addr);
+//! let http_client = sling.http_client_used();
 //! let mut stream = http_client.connect_to();
 //! let mut data = http_client
 //!     .build_http_req("GET", "http://localhost:8888/")
@@ -24,9 +25,6 @@
 //!     .to_vec();
 //! let bytes_written = stream.write(&mut data).unwrap();
 //! println!("bytes written:{:?}", bytes_written);
-//! stream
-//!     .set_read_timeout(Some(Duration::from_millis(10)))
-//!     .expect("error setup read timeout");
 //! let mut reader = BufReader::new(stream);
 //! let received: Vec<u8> = reader
 //!     .fill_buf()
@@ -35,6 +33,7 @@
 //! reader.consume(received.len());
 //! let data = String::from_utf8(received).expect("invalid utf8 supplied");
 //! println!("data received:{data}");
+//!
 //! ```
 //!
 //! This is a blocking/synchronus client, plans in future to make this async.
@@ -49,7 +48,7 @@ use http::request::{Builder, Request};
 use http::{HeaderMap, HeaderName, HeaderValue};
 #[allow(unused_imports)]
 use std::fmt::Error;
-use std::str::FromStr;
+use std::{str::FromStr, time::Duration};
 
 pub mod client;
 
@@ -62,94 +61,96 @@ pub mod client;
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct Sling {
     http_client: Client,
-    method: String,
     raw_url: String,
+    read_timeout: Duration,
+    body: Vec<u8>,
+    header: http::HeaderMap,
+}
+#[derive(Default, Debug, PartialEq)]
+pub struct SlingBuilder {
+    http_client: Client,
+    raw_url: String,
+    read_timeout: Duration,
     body: Vec<u8>,
     header: http::HeaderMap,
 }
 
 #[allow(unused)]
-impl Sling {
+impl SlingBuilder {
     /// create a new empty sling similar to using `default`
     fn new() -> Self {
-        Sling {
-            method: String::new(),
+        SlingBuilder {
             raw_url: String::new(),
+            read_timeout: Duration::from_millis(10),
             header: HeaderMap::new(),
             body: Vec::new(),
             http_client: Client::default(),
         }
     }
-
-    /// sets the uri
-    fn set_uri(&mut self, url: &str) {
-        self.raw_url = url.to_string();
+    /// sets the uri base url for server
+    pub fn set_uri(mut self, url: String) -> SlingBuilder {
+        self.http_client.address(&url);
+        self.raw_url = url;
+        self
     }
 
+    /// sets the read timeout to be used by underlying client when
+    /// communicating with server
+    pub fn set_read_timeout(mut self, duration: Duration) -> SlingBuilder {
+        self.read_timeout = duration;
+        self.http_client.set_read_timeout(duration);
+        self
+    }
+
+    /// sets the header `http::Header`
+    fn set_header(mut self, header_key: &str, value: &str) -> SlingBuilder {
+        let header_key_value =
+            HeaderName::from_str(header_key).expect("invalid header name provided");
+        let header_value = HeaderValue::from_str(value).expect("invalid header value provided");
+        self.header.insert(header_key_value, header_value);
+        self
+    }
+
+    /// body bytes associated with request
+    fn set_body(mut self, body_value: Vec<u8>) -> SlingBuilder {
+        self.body = body_value;
+        self
+    }
+    fn build(self) -> Sling {
+        Sling {
+            http_client: self.http_client,
+            raw_url: self.raw_url,
+            read_timeout: self.read_timeout,
+            body: self.body,
+            header: self.header,
+        }
+    }
+    pub fn http_client_used(self) -> Client {
+        self.http_client
+    }
+}
+
+#[allow(unused)]
+impl Sling {
+    /// used to expose builder
+    pub fn builder() -> SlingBuilder {
+        SlingBuilder::default()
+    }
     /// used to get url used for server
     fn raw_uri(&self) -> String {
         self.raw_url.clone()
     }
-
-    /// sets method for request
-    fn set_method(&mut self, method: &str) {
-        self.method = method.to_string();
+    /// gets the attached client to slinger
+    pub fn http_client(self) -> Client {
+        self.http_client
     }
-
-    /// provides method used
-    fn method(&self) -> String {
-        self.method.clone()
+    /// builds a request from supplied path
+    pub fn build_request_with_path(&self, method: &str, path: &str) -> String {
+        self.http_client.http_req_from_path(method, path)
     }
-
-    /// sets the header `http::Header`
-    fn set_header(&mut self, header_key: &str, value: &str) -> bool {
-        let header_key_value =
-            HeaderName::from_str(header_key).expect("invalid header name provided");
-        let header_value = HeaderValue::from_str(value).expect("invalid header value provided");
-        self.header.insert(header_key_value, header_value).is_none()
-    }
-
-    /// body bytes associated with request
-    fn set_body(&mut self, body_value: Vec<u8>) {
-        self.body = body_value
-    }
-
-    /// builds a http request
-    fn build_request(&mut self) -> Result<http::Request<Vec<u8>>, http::Error> {
-        if self.header.is_empty() {
-            return Request::builder()
-                .method(self.method.as_str())
-                .uri(self.raw_url.as_str())
-                .header("Accept", "application/json")
-                .body(self.body.clone());
-        } else {
-            let mut request = Request::builder()
-                .method(self.method.as_str())
-                .uri(self.raw_url.as_str())
-                .header("Accept", "application/json")
-                .body(self.body.clone())?;
-            for (k, v) in self.header.iter() {
-                let val = v.to_str().expect("invalid header value received");
-                request.headers_mut().insert(k, v.clone()).unwrap();
-            }
-            return Ok(request);
-        }
-    }
-    /// builds request with a body
-    fn build_request_with_body(
-        &mut self,
-        body: Vec<u8>,
-    ) -> Result<http::Request<Vec<u8>>, http::Error> {
-        self.body = body;
-        self.build_request()
-    }
-    /// build a client with `base_url` for server
-    fn client_with_base_url(&mut self, url: String) {
-        self.http_client.address(&url);
-    }
-    /// gets configured default http client
-    pub fn http_client(&self) -> Client {
-        self.http_client.clone()
+    /// builds a http request with url supplied
+    pub fn build_http_request(&self, method: &str, url: &str) -> String {
+        self.http_client.build_http_req(method, url)
     }
 }
 
@@ -171,11 +172,11 @@ mod tests {
     use super::*;
     #[test]
     fn sling_test() {
-        let result = Sling::new();
+        let result = SlingBuilder::new().build();
         assert_eq!(
             result,
             Sling {
-                method: "".to_string(),
+                read_timeout: Duration::from_millis(10),
                 raw_url: "".to_string(),
                 header: HeaderMap::with_capacity(0),
                 body: Vec::new(),
@@ -187,57 +188,31 @@ mod tests {
     #[test]
     fn set_uri() {
         let url_value = String::from("rul");
-        let value: &str = url_value.as_str();
-        let mut sling = Sling::default();
-        sling.set_uri(value);
-        assert_eq!(sling.raw_uri(), value)
-    }
-    #[test]
-    fn set_method() {
-        let mut sling = Sling::default();
-        let value = String::from("GET");
-        sling.set_method(value.as_str());
-        assert_eq!(sling.method(), value)
+        let sling = Sling::builder().set_uri(url_value.clone());
+        assert_eq!(sling.raw_url, url_value)
     }
     #[test]
     fn set_header() {
-        let mut sling = Sling::default();
         let header_key = "accept";
         let header_value = "application/json";
-        let result = sling.set_header(&header_key, &header_value);
+        let sling = SlingBuilder::default().set_header(&header_key, &header_value);
         assert_eq!(sling.header.len(), 1);
-        assert_eq!(result, true)
     }
     #[test]
-    fn build_request() {
-        let mut sling = Sling::default();
-        let body_text = "hello";
-        let body_bytes = body_text.as_bytes();
-        let body_value: Vec<u8> = body_bytes.into();
-        sling.set_uri("http://domain.com");
-        sling.set_method("GET");
-        sling.set_body(body_value);
-        let request = sling.build_request().unwrap();
-        let result_body = request.into_body();
-        assert_eq!(result_body, body_bytes)
-    }
-    #[test]
-    fn request_with_body() {
-        let mut sling = Sling::default();
-        sling.set_uri("http://domain.com");
-        sling.set_method("GET");
-        let body_text = "hello".to_string();
-        let body_bytes = body_text.as_bytes();
-        let body_value: Vec<u8> = body_bytes.into();
-        let request = sling.build_request_with_body(body_value).unwrap();
-        assert_eq!(request.into_body(), body_bytes)
+    fn builder() {
+        let sling = Sling::default();
+        let sling_from_builder = SlingBuilder::new()
+            .set_read_timeout(Duration::from_nanos(0))
+            .build();
+        assert_eq!(sling_from_builder, sling);
     }
     #[test]
     fn connect() {
         let addr = "http://localhost:8888".to_string();
-        let sling = Sling::default();
-        let mut http_client = sling.http_client();
-        http_client.address(&addr);
+        let sling = SlingBuilder::default()
+            .set_read_timeout(Duration::from_millis(10))
+            .set_uri(addr);
+        let http_client = sling.http_client_used();
         let mut stream = http_client.connect_to();
         let mut data = http_client
             .build_http_req("GET", "http://localhost:8888/")
@@ -245,9 +220,6 @@ mod tests {
             .to_vec();
         let bytes_written = stream.write(&mut data).unwrap();
         println!("bytes written:{:?}", bytes_written);
-        stream
-            .set_read_timeout(Some(Duration::from_millis(10)))
-            .expect("error setup read timeout");
         let mut reader = BufReader::new(stream);
         let received: Vec<u8> = reader
             .fill_buf()
