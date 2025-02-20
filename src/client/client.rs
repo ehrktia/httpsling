@@ -1,6 +1,7 @@
 //! # Client
 //! is a tcp based client used for http interaction
 //! uses the `base_url` provided and tries to communicate with server
+use std::time::Duration;
 #[allow(unused_imports)]
 use std::{
     io::{BufReader, BufWriter},
@@ -14,6 +15,7 @@ use http::Uri;
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Client {
     base_url: String,
+    read_timeout: Duration,
 }
 
 impl Client {
@@ -30,8 +32,10 @@ impl Client {
         if url.starts_with("http://") {
             url = url.replace("http://", "");
         }
-        println!("connecting to:{:?}", url);
-        TcpStream::connect(url).expect("error connecting to server to write")
+        let stream = TcpStream::connect(url).expect("error connecting to server to write");
+        TcpStream::set_read_timeout(&stream, Some(self.read_timeout))
+            .expect("error setting read timeout for stream");
+        return stream;
     }
 
     /// verifies if the `base_url` holds the `/` at the end
@@ -57,6 +61,11 @@ impl Client {
         self.build_http_req(method, &base)
     }
 
+    /// sets read timeout for client
+    pub fn set_read_timeout(&mut self, timeout: Duration) {
+        self.read_timeout = timeout;
+    }
+
     /// extracts the path and query parameters supplied to url
     fn get_path(&self, url: &Uri) -> Result<String, &'static str> {
         if url.path() == "" {
@@ -68,10 +77,15 @@ impl Client {
             _ => return Err("invalid query param supplied"),
         }
     }
+    /// emits the url used by http_client
     pub fn get_address(&self) -> String {
         self.base_url.clone()
     }
 
+    /// provides the timeout used
+    pub fn read_timeout(&self) -> Duration {
+        self.read_timeout
+    }
     /// internally builds a http request using the url and method provided
     pub fn build_http_req(&self, method: &str, url: &str) -> String {
         let uri: Uri = url.parse().expect("invalid url supplied");
@@ -140,6 +154,7 @@ mod test {
     fn connect_stream() {
         let addr = String::from("http://localhost:8888");
         let mut client = Client::default();
+        client.set_read_timeout(Duration::from_millis(10));
         client.address(&addr);
         client.connect_to();
     }
@@ -147,6 +162,7 @@ mod test {
     fn check_default_path() {
         let mut client = Client::default();
         let addr = String::from("http://localhost:8888/");
+        client.set_read_timeout(Duration::from_millis(10));
         client.address(&addr);
         assert_eq!(client.check_default_path(), true)
     }
@@ -154,7 +170,15 @@ mod test {
     fn check_default_path_false() {
         let mut client = Client::default();
         let addr = String::from("http://localhost:8888");
+        client.set_read_timeout(Duration::from_millis(10));
         client.address(&addr);
         assert_eq!(client.check_default_path(), false);
+    }
+    #[test]
+    fn set_read_timeout() {
+        let mut client = Client::default();
+        let timeout = Duration::from_millis(10);
+        client.set_read_timeout(timeout);
+        assert_eq!(client.read_timeout, timeout)
     }
 }
